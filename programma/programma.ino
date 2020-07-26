@@ -7,17 +7,17 @@
 
   
   //ingangen schakelaars
-  //sw1 pin33
-  //sw2 pin39
-  //sw3 pin47
-  //sw4 pin49
+  //sw1_knop pin33
+  //sw2_knop pin39
+  //sw3_knop pin47
+  //sw4_knop pin49
 
   //ingangen sensors : datasheet : https://github.com/v12345vtm/WEBASTO/blob/master/tsic%20206.pdf
-  //J3 pin36
-  //J4 pin34
+  //J3_temp pin36
+  //J4_temp pin34
 
   //uitgangen 
-  //Q3 mosfet signaal : https://github.com/v12345vtm/WEBASTO/blob/master/pomp1.bmp  datasheet : 
+  //Q3 mosfet  pin 45 signaal : https://github.com/v12345vtm/WEBASTO/blob/master/pomp1.bmp  datasheet : https://github.com/v12345vtm/WEBASTO/blob/master/mosfet.pdf
   //K1 relais pin23
   //K2 relais pin25
 
@@ -39,7 +39,6 @@
 
 // include the library code:
 #include <LiquidCrystal.h> // LCD 4bit mode
-
 #include "TSIC.h"       // include the library tsic voor de tempsensors uit te lezen
 
 
@@ -50,8 +49,9 @@ float Temperatur_C = 0;
 String versie = "DEG V0.2" ; //sketch versie  
 
 // defines pins numbers
-const int K1_relais = 23; // relais 
+const int K1_relais = 23; // relais ventilator
 const int K2_relais = 25; //
+const int Q3_mosfet = 45; //pomp pwm
 
 const int SW1_knop = 33; //knopjes
 const int SW2_knop = 39;
@@ -120,6 +120,8 @@ void loop() {
     Serial.println(" °C");
   }
 
+int dutycycle = map(90, 0, 100, 0, 255); // 90 met schaal conversie van 0-255 naar 0-100%
+analogWrite(Q3_mosfet, dutycycle) ;
 
 
   
