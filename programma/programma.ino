@@ -1,21 +1,27 @@
-//geert eindwerk
+
 /*
+ 
+  
+  //geert eindwerk : deze sketch : https://github.com/v12345vtm/WEBASTO/tree/master/programma
+
+
+  
   //ingangen schakelaars
   //sw1 pin33
   //sw2 pin39
   //sw3 pin47
   //sw4 pin49
 
-  //ingangen sensors
+  //ingangen sensors : datasheet : https://github.com/v12345vtm/WEBASTO/blob/master/tsic%20206.pdf
   //J3 pin36
   //J4 pin34
 
-  //uitgangen
-  //Q3 mosfet
+  //uitgangen 
+  //Q3 mosfet signaal : https://github.com/v12345vtm/WEBASTO/blob/master/pomp1.bmp  datasheet : 
   //K1 relais pin23
   //K2 relais pin25
 
-  //LCD
+  //LCD datasheet : https://github.com/v12345vtm/WEBASTO/blob/master/ATM1602A.pdf
    LCD RS pin to digital pin 32
    LCD Enable pin to digital pin20
    LCD D4 pin to digital pin 22
