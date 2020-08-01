@@ -1,13 +1,21 @@
 
 /*
- 
-  
-  //geert eindwerk : deze sketch : https://github.com/v12345vtm/WEBASTO/tree/master/programma
+geert eindwerk : deze sketch : https://github.com/v12345vtm/WEBASTO/tree/master/programma
 
+
+
+
+todo : 
+functies in oop schrijven  : https://roboticsbackend.com/arduino-object-oriented-programming-oop/
+
+
+
+
+info : 
 Mega, Mega2560, MegaADK pinnen met interupt 2, 3, 18, 19, 20, 21
 
-  
-  //ingangen schakelaars
+
+  //ingangen schakelaars  ,alles met pulldownweerstand
   //sw1_knop pin33
   //sw2_knop pin39
   //sw3_knop pin47
@@ -17,7 +25,7 @@ Mega, Mega2560, MegaADK pinnen met interupt 2, 3, 18, 19, 20, 21
   //J3_temp pin36
   //J4_temp pin34
 
-  //uitgangen 
+  //uitgangen
   //Q3 mosfet  pin 45 signaal : https://github.com/v12345vtm/WEBASTO/blob/master/pomp1.bmp  datasheet : https://github.com/v12345vtm/WEBASTO/blob/master/mosfet.pdf
   //K1 relais pin23
   //K2 relais pin25
@@ -44,10 +52,10 @@ Mega, Mega2560, MegaADK pinnen met interupt 2, 3, 18, 19, 20, 21
 
 
 
-//variabelen : 
+//variabelen :
 uint16_t temperature = 0;
 float Temperatur_C = 0;
-String versie = "DEG V0.2 knoptest-nano" ; //sketch versie  
+String versie = "DEG V0.2 knoptest-nano" ; //sketch versie
 
 int menustructuurA = 0;
 int menustructuurB = 0;
@@ -67,7 +75,7 @@ const int J4_temp = 34;
 
 bool SW1flag , SW2flag , SW3flag , SW4flag  = 0;
 bool lastSW1flag , lastSW2flag , lastSW3flag, lastSW4flag = 0;
- 
+
 // instantiate the library, representing the sensor
 //TSIC Sensor1(4, 2);    // Signalpin, VCCpin, Sensor Type
 TSIC Sensor1(J3_temp);    // only Signalpin, VCCpin unused by default
@@ -84,14 +92,14 @@ LiquidCrystal lcd(32, 20, 22, 24, 26, 28); // RS , E , D4 , D5 , D6 , D7
 void setup() {
 
   //Start everything up
-Serial.begin(115200); //seriele poort
-Serial.println(versie) ;
+  Serial.begin(115200); //seriele poort
+  Serial.println(versie) ;
 
-  
+
   //save power https://www.youtube.com/watch?v=urLSDi7SD8M&t=1276s
   for (int p = 0 ; p < 54 ; p++) //low power besparing //check hoeveel poorten de mega heeft....
   {
-    pinMode(p, OUTPUT); //alles output , en ook de overtollige pinnen omwille van low power besparing 
+    pinMode(p, OUTPUT); //alles output , en ook de overtollige pinnen omwille van low power besparing
   }
 
   //behalve deze zijn inputs
@@ -102,7 +110,7 @@ Serial.println(versie) ;
 
   pinMode(J3_temp, INPUT); // Sets   as an Input
   pinMode(J4_temp, INPUT); // Sets   as an Input
-  
+
   // set up the LCD's number of columns and rows:
   lcd.begin(16, 2);
   // Print a message to the LCD.
@@ -119,7 +127,7 @@ void loop() {
 
 
 
- if (Sensor1.getTemperature(&temperature)) {
+  if (Sensor1.getTemperature(&temperature)) {
     Serial.print("uint_16: ");
     Serial.println(temperature);
     Temperatur_C = Sensor1.calc_Celsius(&temperature);
@@ -128,28 +136,31 @@ void loop() {
     Serial.println(" °C");
   }
 
-int dutycycle = map(90, 0, 100, 0, 255); // 90 met schaal conversie van 0-255 naar 0-100%
-analogWrite(Q3_mosfet, dutycycle) ; //pomp doen draaien op pwm constante
 
 
-checkButton1(); 
-checkButton2();  
- checkButton3(); 
-checkButton4(); 
+  checkButton1();
+  checkButton2();
+  checkButton3();
+  checkButton4();
 
- 
-
-
-  
-}
+set_pwm_pomp ( 90) ; //set_pwm_pomp (byte pwm) 0-100% als parameter meegeven
 
 
 
+
+}//einde loop
+
+
+void set_pwm_pomp (byte pwm)
+{ 
+    int dutycycle = map(pwm, 0, 100, 0, 255); // 90 met schaal conversie van 0-255 naar 0-100%
+  analogWrite(Q3_mosfet, dutycycle) ; //pomp doen draaien op pwm constante
+  }
 
 
 void checkButton1()
-{  
-   // read the pushbutton input pin:
+{
+  // read the pushbutton input pin:
   SW1flag = digitalRead(SW1_knop);
 
   // compare the SW1flag to its previous state
@@ -157,10 +168,10 @@ void checkButton1()
     // if the state has changed, increment the counter
     if (SW1flag == HIGH) {
       // if the current state is HIGH then the button went from off to on:
-    //  buttonPushCounter++;
+      //  buttonPushCounter++;
       Serial.println("1uit");
-     // Serial.print("number of button pushes: ");
-     // Serial.println(buttonPushCounter);
+      // Serial.print("number of button pushes: ");
+      // Serial.println(buttonPushCounter);
     } else {
       // if the current state is LOW then the button went from on to off:
       Serial.println("1in");
@@ -170,16 +181,16 @@ void checkButton1()
   }
   // save the current state as the last state, for next time through the loop
   lastSW1flag = SW1flag;
-  
-  }
+
+}
 
 
 
 
 
-  void checkButton2()
-{  
-   // read the pushbutton input pin:
+void checkButton2()
+{
+  // read the pushbutton input pin:
   SW2flag = digitalRead(SW2_knop);
 
   // compare the SW1flag to its previous state
@@ -187,10 +198,10 @@ void checkButton1()
     // if the state has changed, increment the counter
     if (SW2flag == HIGH) {
       // if the current state is HIGH then the button went from off to on:
-    //  buttonPushCounter++;
+      //  buttonPushCounter++;
       Serial.println("2uit");
-     // Serial.print("number of button pushes: ");
-     // Serial.println(buttonPushCounter);
+      // Serial.print("number of button pushes: ");
+      // Serial.println(buttonPushCounter);
     } else {
       // if the current state is LOW then the button went from on to off:
       Serial.println("2in");
@@ -200,15 +211,15 @@ void checkButton1()
   }
   // save the current state as the last state, for next time through the loop
   lastSW2flag = SW2flag;
-  
-  }
+
+}
 
 
 
 
-  void checkButton3()
-{  
-   // read the pushbutton input pin:
+void checkButton3()
+{
+  // read the pushbutton input pin:
   SW3flag = digitalRead(SW3_knop);
 
   // compare the SW1flag to its previous state
@@ -216,10 +227,10 @@ void checkButton1()
     // if the state has changed, increment the counter
     if (SW3flag == HIGH) {
       // if the current state is HIGH then the button went from off to on:
-    //  buttonPushCounter++;
+      //  buttonPushCounter++;
       Serial.println("3uit");
-     // Serial.print("number of button pushes: ");
-     // Serial.println(buttonPushCounter);
+      // Serial.print("number of button pushes: ");
+      // Serial.println(buttonPushCounter);
     } else {
       // if the current state is LOW then the button went from on to off:
       Serial.println("3in");
@@ -229,16 +240,16 @@ void checkButton1()
   }
   // save the current state as the last state, for next time through the loop
   lastSW3flag = SW3flag;
-  
-  }
+
+}
 
 
 
 
 
-  void checkButton4()
-{  
-   // read the pushbutton input pin:
+void checkButton4()
+{
+  // read the pushbutton input pin:
   SW4flag = digitalRead(SW4_knop);
 
   // compare the SW1flag to its previous state
@@ -246,10 +257,10 @@ void checkButton1()
     // if the state has changed, increment the counter
     if (SW4flag == HIGH) {
       // if the current state is HIGH then the button went from off to on:
-    //  buttonPushCounter++;
+      //  buttonPushCounter++;
       Serial.println("4uit");
-     // Serial.print("number of button pushes: ");
-     // Serial.println(buttonPushCounter);
+      // Serial.print("number of button pushes: ");
+      // Serial.println(buttonPushCounter);
     } else {
       // if the current state is LOW then the button went from on to off:
       Serial.println("4in");
@@ -259,5 +270,5 @@ void checkButton1()
   }
   // save the current state as the last state, for next time through the loop
   lastSW4flag = SW4flag;
-  
-  }
+
+}
