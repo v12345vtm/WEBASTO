@@ -1,4 +1,4 @@
-
+//https://github.com/v12345vtm/WEBASTO
 
 class Button {
   private:
@@ -28,17 +28,9 @@ class Button {
         // if the state has changed, increment the counter
         if (flag == HIGH) {
           // if the current state is HIGH then the button went from off to on:
-          //  Serial.print("pin  ");
-          //  Serial.print(pin );
-          // Serial.println("in");
           flank = 1;
-          // Serial.print("number of button pushes: ");
-          // Serial.println(buttonPushCounter);
         } else {
           // if the current state is LOW then the button went from on to off:
-          //   Serial.print("pin  ");
-          // Serial.print(pin );
-          // Serial.println("uit");
           flank = 0;
         }
         // Delay a little bit to avoid bouncing
@@ -63,7 +55,6 @@ class Button {
       update();
       if (flank == 1) //0 is dalende flank  en 1 is stijgende flank
       {
-        // Serial.println("up+1");
         flank = 2 ;//flank is weg zet terug op status2
         return true ;
       }
@@ -97,9 +88,6 @@ void loop() {
 
   controleerInputs();
 
-
-
-  //  button4.getState();
 
 }
 
