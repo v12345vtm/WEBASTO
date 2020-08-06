@@ -49,20 +49,24 @@
 #include <EEPROM.h> //opslaan user settings
 //variabelen :
 
-String versie = "DEG V0.3 clasbuttonLCD-TEMP" ; //sketch versie
+String versie = "DEG V0.3 clasbuttonLCD-TEMP_onoff-MEGA" ; //sketch versie
+
 byte gewensteTemp = 0; //hoe warm wil je het in de auto hebben?
 byte alarmTemp = 60 ; // als de webasto 60gr is , stop het geheel
 byte pwm_procent = 90 ; //hoeveel dutycyle moet de pomp draaien , instelbaar met knoppjes
-byte menustructuur = 0 ;//menustructuur lcd en rs232 die de parameters instelt 0=hoofdmenu 1=pwmmenu 2=gewenstetempmenu ...
+
 int Sleeptimer = 1 ; //teller in minuten waneer de verwarming moet opstarten
 String knopfunctie1 = "pwm" ;//lcd menu toetsfuncties
 String knopfunctie2 = "temp" ;
 String knopfunctie3 = "alarm" ;
 String knopfunctie4 = "timer" ;
+
+byte menustructuur = 0 ;//menustructuur lcd en rs232 die de parameters instelt 0=hoofdmenu 1=pwmmenu 2=gewenstetempmenu ...
+
 bool startvrijgave = 0 ; // 0=mag niet opstarten 1=start webasto
 
 
-//limieten 
+//limieten
 #define procent_lower_limit 0 // 0 tot 100 procent
 #define procent_upper_limit 100
 
@@ -74,6 +78,9 @@ bool startvrijgave = 0 ; // 0=mag niet opstarten 1=start webasto
 
 #define sleeptimer_lower_limit 0 //0 tot 720 minuten timer eer de webasto mag opstarten , 0 is direkt starten
 #define sleeptimer_upper_limit 720
+
+
+String selected = " gekozen" ; //debug in rs232
 
 byte stap = 1 ;//per1
 byte nextstap = 5 ;//per5
@@ -88,13 +95,13 @@ const int K1_relais = 23; // relais ventilator
 const int K2_relais = 25; //
 const int Q3_mosfet = 6; //pomp pwm 45 op de mega
 
-const int SW1_knop = A0 ; //33; //knopjes
-const int SW2_knop = A1 ; //39;
-const int SW3_knop = A2 ; //47;
-const int SW4_knop = A3 ; //49;
+const int SW1_knop = 33 ; // A0  33 op de mega; //knopjes
+const int SW2_knop = 39 ; //A1   39op de mega;
+const int SW3_knop = 47 ; // A2  47op de mega;
+const int SW4_knop = 49 ; // A3   49op de mega;
 
-const int J3_temp = 12; //tempsensor 36 op de mega
-const int J4_temp = 11; // 34; //op de mega
+const int J3_temp = 36; //12tempsensor 36 op de mega
+const int J4_temp = 34; //11  34op de mega
 
 
 // instantiate the library, representing the tempsensor
@@ -183,53 +190,53 @@ class Button {
 // Create your objects in the global scope so you can
 
 
-Button button1(A0); //33 op de mega
-Button button2(A1); //39
-Button button3(A2); //47
-Button button4(A3); //49
+Button button1(SW1_knop); //33 op de mega
+Button button2(SW2_knop); //39
+Button button3(SW3_knop); //47
+Button button4(SW4_knop); //49
 
 
 void setup() {
   Serial.begin(115200);
   Serial.println(versie) ;
 
- // read a byte from the current address of the EEPROM
-      pwm_procent = EEPROM.read(1);
-  gewensteTemp = EEPROM.read(2);
-    alarmTemp = EEPROM.read(3); 
-     //   value = EEPROM.read(4);
-
-//bij een nieuwe arduino zit de eeprom mogelijk op 255 , en dat mag niet of we zitten block met onze userinputcheck
-if (userinput_check (EEPROM.read(1) , procent_lower_limit , procent_upper_limit))
-{
+  // read a byte from the current address of the EEPROM
   pwm_procent = EEPROM.read(1);
-  }
-  else{
-      EEPROM.update(1, 59);
-    }
-
-
-if (userinput_check (EEPROM.read(2) , temp_lower_limit , temp_upper_limit))
-{
   gewensteTemp = EEPROM.read(2);
-  }
-  else{
-      EEPROM.update(2, 58);
-    }
-
-
-    if (userinput_check (EEPROM.read(3) ,alarm_lower_limit , alarm_upper_limit))
-{
   alarmTemp = EEPROM.read(3);
+  //   value = EEPROM.read(4);
+
+  //bij een nieuwe arduino zit de eeprom mogelijk op 255 , en dat mag niet of we zitten block met onze userinputcheck
+  if (userinput_check (EEPROM.read(8) , procent_lower_limit , procent_upper_limit))
+  {
+    pwm_procent = EEPROM.read(8);
   }
-  else{
-      EEPROM.update(3, 57);
-    }
+  else {
+    EEPROM.update(8, 59);
+  }
+
+
+  if (userinput_check (EEPROM.read(6) , temp_lower_limit , temp_upper_limit))
+  {
+    gewensteTemp = EEPROM.read(6);
+  }
+  else {
+    EEPROM.update(6, 58);
+  }
+
+
+  if (userinput_check (EEPROM.read(7) , alarm_lower_limit , alarm_upper_limit))
+  {
+    alarmTemp = EEPROM.read(7);
+  }
+  else {
+    EEPROM.update(7, 57);
+  }
 
 
 
 
- 
+
 
   //save power https://www.youtube.com/watch?v=urLSDi7SD8M&t=1276s
   for (int p = 0 ; p < 6 ; p++) //low power besparing //check hoeveel poorten de mega heeft....
@@ -239,10 +246,10 @@ if (userinput_check (EEPROM.read(2) , temp_lower_limit , temp_upper_limit))
 }
 void loop() {
 
-  // controleerInputs();
+   // controleerInputs();
   flowshartmenustructuurLCD ();
-  timer_elke_seconde();
-  set_pwm_pomp ( pwm_procent) ; //set_pwm_pomp (byte pwm) 0-100% als parameter meegeven
+ timer_elke_seconde();
+ set_pwm_pomp ( pwm_procent) ; //set_pwm_pomp (byte pwm) 0-100% als parameter meegeven
 
 
 
@@ -263,22 +270,22 @@ void controleerInputs()
   if ( button1.IsErFlank())
   {
     Serial.println("but1 flank+1");
-    menustructuur = 1 ;
+    delay(500);
   }
   if ( button2.IsErFlank())
   {
     Serial.println("but2 flank+1");
-    menustructuur = 2 ;
+    delay(500);
   }
   if ( button3.IsErFlank())
   {
     Serial.println("but3 flank+1");
-    menustructuur = 3 ;
+   delay(500);
   }
   if ( button4.IsErFlank())
   {
     Serial.println("but4 flank+1");
-    menustructuur = 4 ;
+    delay(500);
   }
 }
 
@@ -293,34 +300,34 @@ void timer_elke_seconde() {
     previousMillis = currentMillis;
 
 
-    //we checken even de tempsensors , we doen dat elke seconde 
-      if (Sensor1.getTemperature(&temperature)) {
-    //  Serial.print("uint_16: ");     Serial.println(temperature);
-    Temperatur_C = Sensor1.calc_Celsius(&temperature);
-    //    Serial.print("Temp: ");     Serial.print(Temperatur_C);    Serial.println(" °C");
-  }
+    //we checken even de tempsensors , we doen dat elke seconde
+    if (Sensor1.getTemperature(&temperature)) {
+      //  Serial.print("uint_16: ");     Serial.println(temperature);
+      Temperatur_C = Sensor1.calc_Celsius(&temperature);
+      //    Serial.print("Temp: ");     Serial.print(Temperatur_C);    Serial.println(" °C");
+    }
 
-       if (Sensor2.getTemperature(&temperature2)) {
-    //  Serial.print("uint_16: ");     Serial.println(temperature2);
-    Temperatur_C2 = Sensor2.calc_Celsius(&temperature2);
-    //    Serial.print("Temp2: ");     Serial.print(Temperatur_C2);    Serial.println(" °C");
-  }
+    if (Sensor2.getTemperature(&temperature2)) {
+      //  Serial.print("uint_16: ");     Serial.println(temperature2);
+      Temperatur_C2 = Sensor2.calc_Celsius(&temperature2);
+      //    Serial.print("Temp2: ");     Serial.print(Temperatur_C2);    Serial.println(" °C");
+    }
 
 
-    
+
 
     // hier staan we elke seconde
     Serial.print("\n\ngewensteTemp \t\t"); Serial.print(gewensteTemp); Serial.println(" °C");
     Serial.print("pwm_procent \t\t"); Serial.print(pwm_procent); Serial.println(" procent");
     Serial.print("alarmTemp \t\t"); Serial.print(alarmTemp); Serial.println(" °C");
     Serial.print("Sleeptimer: \t\t"); Serial.print(Sleeptimer); Serial.println(" minuten");
-   
+
     Serial.print("\nTemp1: \t\t\t"); Serial.print(Temperatur_C); Serial.println(" °C");
     Serial.print("Temp2: \t\t\t"); Serial.print(Temperatur_C2); Serial.println(" °C");
 
-  Serial.print("vrijgave: \t\t"); Serial.print(menustructuur); Serial.println(" on/off");
-  Serial.print("koel_1: \t\t"); Serial.print(menustructuur); Serial.println(" venti");
-  Serial.print("koel_2: \t\t"); Serial.print(menustructuur); Serial.println(" venti");
+    Serial.print("vrijgave: \t\t"); Serial.print(menustructuur); Serial.println(" on/off");
+    Serial.print("koel_1: \t\t"); Serial.print(menustructuur); Serial.println(" venti");
+    Serial.print("koel_2: \t\t"); Serial.print(menustructuur); Serial.println(" venti");
 
 
     Serial.print("\nmenu: \t\t\t"); Serial.println(menustructuur);
@@ -340,42 +347,162 @@ void timer_elke_seconde() {
 void flowshartmenustructuurLCD() {
   switch (menustructuur) {
     case 0:    // startpositie
-      knopfunctie1 = "on_off";
-      knopfunctie2 = "temp";
-      knopfunctie3 = "alarm";
-      knopfunctie4 = "timer";
+      knopfunctie1 = "on";
+      knopfunctie2 = "off";
+      knopfunctie3 = "settings";
+      knopfunctie4 = "later opstarten";
       if ( button1.IsErFlank())
       {
-        Serial.println("on_off gekozen");
+        Serial.println(knopfunctie1 + selected );
         menustructuur = 1 ;
       }
       if ( button2.IsErFlank())
       {
-        Serial.println("temp gekozen");
+        Serial.println(knopfunctie2 + selected );
         menustructuur = 2 ;
       }
       if ( button3.IsErFlank())
       {
-        Serial.println("alarm gekozen");
+        Serial.println(knopfunctie3 + selected );
         menustructuur = 3 ;
       }
       if ( button4.IsErFlank())
       {
-        Serial.println("Sleeptimer gekozen");
+        Serial.println(knopfunctie4 + selected );
         menustructuur = 4 ;
       }
       break;
 
-    case 1:    // pwm edit
+
+    case 1:    // startpositie
+      knopfunctie1 = "on";
+      knopfunctie2 = "off";
+      knopfunctie3 = "settings";
+      knopfunctie4 = "exit";
+      if ( button1.IsErFlank())
+      {
+        Serial.println(knopfunctie1 + selected );
+        // menustructuur = 1 ;
+      }
+      if ( button2.IsErFlank())
+      {
+        Serial.println(knopfunctie2 + selected);
+        menustructuur = 2 ;
+      }
+      if ( button3.IsErFlank())
+      {
+        Serial.println(knopfunctie3 + selected);
+        menustructuur = 3 ;
+      }
+      if ( button4.IsErFlank())
+      {
+        Serial.println(knopfunctie4 + selected);
+        menustructuur = 0 ;
+      }
+      break;
+
+
+
+    case 2:    // off positie
+      knopfunctie1 = "on";
+      knopfunctie2 = "off";
+      knopfunctie3 = "settings";
+      knopfunctie4 = "exit";
+      if ( button1.IsErFlank())
+      {
+        Serial.println(knopfunctie1 + selected);
+        menustructuur = 1 ;
+      }
+      if ( button2.IsErFlank())
+      {
+        Serial.println(knopfunctie2 + selected);
+        // menustructuur = 2 ;
+      }
+      if ( button3.IsErFlank())
+      {
+        Serial.println(knopfunctie3 + selected);
+        menustructuur = 3 ;
+      }
+      if ( button4.IsErFlank())
+      {
+        Serial.println(knopfunctie4 + selected);
+        menustructuur = 0 ;
+      }
+      break;
+
+
+
+    case 3:    // setting positie
+      knopfunctie1 = "timer";
+      knopfunctie2 = "gewenstetemp";
+      knopfunctie3 = "alarm";
+      knopfunctie4 = "pwm";
+      if ( button1.IsErFlank())
+      {
+        Serial.println(knopfunctie1 + selected);
+        menustructuur = 5 ;
+      }
+      if ( button2.IsErFlank())
+      {
+        Serial.println(knopfunctie2 + selected);
+        menustructuur = 6 ;
+      }
+      if ( button3.IsErFlank())
+      {
+        Serial.println(knopfunctie3 + selected);
+        menustructuur = 7 ;
+      }
+      if ( button4.IsErFlank())
+      {
+        Serial.println(knopfunctie4 + selected);
+        menustructuur = 8 ;
+      }
+      break;
+
+
+
+
+
+
+    case 4:    // vertraagt starten
+      knopfunctie1 = "on vertraagd";
+      knopfunctie2 = "off";
+      knopfunctie3 = "edit timer";
+      knopfunctie4 = "exit";
+      if ( button1.IsErFlank())
+      {
+        Serial.println(knopfunctie1 + selected);
+        //menustructuur = 1 ;
+      }
+      if ( button2.IsErFlank())
+      {
+        Serial.println(knopfunctie2 + selected);
+        //  menustructuur = 2 ;
+      }
+      if ( button3.IsErFlank())
+      {
+        Serial.println(knopfunctie3  + selected);
+        menustructuur = 5 ;
+      }
+      if ( button4.IsErFlank())
+      {
+        Serial.println(knopfunctie4 + selected);
+        menustructuur = 0 ;
+      }
+      break;
+
+
+
+    case 5:    // timer edit
       knopfunctie1 = "+ " + String(stap);
       knopfunctie2 = "- " +  String(stap);
       knopfunctie3 = "per " +  String(nextstap);
-      knopfunctie4 = "save pwm";
-      if ( button1.IsErFlank() && userinput_check (  pwm_procent ,procent_lower_limit , procent_upper_limit - stap))
+      knopfunctie4 = "save timer";
+      if ( button1.IsErFlank() && userinput_check (  pwm_procent , procent_lower_limit , procent_upper_limit - stap))
       {
         pwm_procent = pwm_procent + stap ;
       }
-      if ( button2.IsErFlank() && userinput_check (  pwm_procent , procent_lower_limit + stap ,procent_upper_limit ))
+      if ( button2.IsErFlank() && userinput_check (  pwm_procent , procent_lower_limit + stap , procent_upper_limit ))
       {
         pwm_procent = pwm_procent - stap ;
       }
@@ -399,25 +526,28 @@ void flowshartmenustructuurLCD() {
         Serial.println("save pwm"); //pwm_procent
         if ( userinput_check (  pwm_procent , procent_lower_limit , procent_upper_limit))
         {
-           EEPROM.update(menustructuur, pwm_procent);
+          EEPROM.update(menustructuur, pwm_procent);
           menustructuur = 0 ; //0is home menu indien we geldige waarde kregen van gebruiker
         }
       }
       break;
 
 
-    case 2:    // gewensteTemp editen
+
+
+
+    case 6:    // gewenste temp edit
       knopfunctie1 = "+ " + String(stap);
       knopfunctie2 = "- " +  String(stap);
       knopfunctie3 = "per " +  String(nextstap);
-      knopfunctie4 = "save temp";
-      if ( button1.IsErFlank() && userinput_check (  gewensteTemp ,temp_lower_limit , temp_upper_limit - stap))
+      knopfunctie4 = "save gewenste temp";
+      if ( button1.IsErFlank() && userinput_check (  pwm_procent , procent_lower_limit , procent_upper_limit - stap))
       {
-        gewensteTemp = gewensteTemp + stap ;
+        pwm_procent = pwm_procent + stap ;
       }
-      if ( button2.IsErFlank() && userinput_check (  gewensteTemp , temp_lower_limit + stap , temp_upper_limit ))
+      if ( button2.IsErFlank() && userinput_check (  pwm_procent , procent_lower_limit + stap , procent_upper_limit ))
       {
-        gewensteTemp = gewensteTemp - stap ;
+        pwm_procent = pwm_procent - stap ;
       }
       if ( button3.IsErFlank())
       {
@@ -436,27 +566,31 @@ void flowshartmenustructuurLCD() {
       }
       if ( button4.IsErFlank())
       {
-        Serial.println("save gewensteTemp");
-        if ( userinput_check (  gewensteTemp , temp_lower_limit , temp_upper_limit))
+        Serial.println("save pwm"); //pwm_procent
+        if ( userinput_check (  pwm_procent , procent_lower_limit , procent_upper_limit))
         {
-           EEPROM.update(menustructuur, gewensteTemp);
+          EEPROM.update(menustructuur, pwm_procent);
           menustructuur = 0 ; //0is home menu indien we geldige waarde kregen van gebruiker
         }
       }
       break;
 
-    case 3:    //  alarmTemp editen
+
+
+
+
+    case 7:    // alarm max
       knopfunctie1 = "+ " + String(stap);
       knopfunctie2 = "- " +  String(stap);
       knopfunctie3 = "per " +  String(nextstap);
-      knopfunctie4 = "save alarmTemp";
-      if ( button1.IsErFlank() && userinput_check (  alarmTemp , alarm_lower_limit , alarm_upper_limit - stap))
+      knopfunctie4 = "save alarm";
+      if ( button1.IsErFlank() && userinput_check (  pwm_procent , procent_lower_limit , procent_upper_limit - stap))
       {
-        alarmTemp = alarmTemp + stap ;
+        pwm_procent = pwm_procent + stap ;
       }
-      if ( button2.IsErFlank() && userinput_check (  alarmTemp , alarm_lower_limit + stap , alarm_upper_limit ))
+      if ( button2.IsErFlank() && userinput_check (  pwm_procent , procent_lower_limit + stap , procent_upper_limit ))
       {
-        alarmTemp = alarmTemp - stap ;
+        pwm_procent = pwm_procent - stap ;
       }
       if ( button3.IsErFlank())
       {
@@ -475,28 +609,38 @@ void flowshartmenustructuurLCD() {
       }
       if ( button4.IsErFlank())
       {
-        Serial.println("save alarmTemp");
-        if ( userinput_check (  alarmTemp , alarm_lower_limit , alarm_upper_limit))
+        Serial.println("save pwm"); //pwm_procent
+        if ( userinput_check (  pwm_procent , procent_lower_limit , procent_upper_limit))
         {
-             EEPROM.update(menustructuur, alarmTemp);
+          EEPROM.update(menustructuur, pwm_procent);
           menustructuur = 0 ; //0is home menu indien we geldige waarde kregen van gebruiker
         }
       }
       break;
 
 
-    case 4:    //  Sleeptimer editen
+
+
+
+
+
+
+
+
+
+
+    case 8:    // pwm edit
       knopfunctie1 = "+ " + String(stap);
       knopfunctie2 = "- " +  String(stap);
       knopfunctie3 = "per " +  String(nextstap);
-      knopfunctie4 = "save timer doen we niet";
-      if ( button1.IsErFlank() && userinput_check (  Sleeptimer , sleeptimer_lower_limit , sleeptimer_upper_limit - stap))
+      knopfunctie4 = "save pwm";
+      if ( button1.IsErFlank() && userinput_check (  pwm_procent , procent_lower_limit , procent_upper_limit - stap))
       {
-        Sleeptimer = Sleeptimer + stap ;
+        pwm_procent = pwm_procent + stap ;
       }
-      if ( button2.IsErFlank() && userinput_check (  Sleeptimer , sleeptimer_lower_limit + stap , sleeptimer_upper_limit ))
+      if ( button2.IsErFlank() && userinput_check (  pwm_procent , procent_lower_limit + stap , procent_upper_limit ))
       {
-        Sleeptimer = Sleeptimer - stap ;
+        pwm_procent = pwm_procent - stap ;
       }
       if ( button3.IsErFlank())
       {
@@ -515,14 +659,17 @@ void flowshartmenustructuurLCD() {
       }
       if ( button4.IsErFlank())
       {
-        // Serial.println("save sleeptimer");
-        if ( userinput_check (  Sleeptimer , sleeptimer_lower_limit , sleeptimer_upper_limit))
+        Serial.println("save pwm"); //pwm_procent
+        if ( userinput_check (  pwm_procent , procent_lower_limit , procent_upper_limit))
         {
-            EEPROM.update(menustructuur, Sleeptimer);
+          EEPROM.update(menustructuur, pwm_procent);
           menustructuur = 0 ; //0is home menu indien we geldige waarde kregen van gebruiker
         }
       }
       break;
+
+
+
   }
 }
 
