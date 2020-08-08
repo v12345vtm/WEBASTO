@@ -49,27 +49,35 @@
 #include <EEPROM.h> //opslaan user settings
 //variabelen :
 
-String versie = "DEG V0.3 clasbuttonLCD-TEMP_onoff-MEGA" ; //sketch versie
+String versie = "DEG V0.3 clasbuttonLCD-TEMP_onoff-MEGA-standenschak" ; //sketch versie
 
 byte gewensteTemp  ; //hoe warm wil je het in de auto hebben?
 byte alarmTemp   ; // als de webasto 60gr is , stop het geheel
-byte pwm_procent  ; //hoeveel dutycyle moet de pomp draaien , instelbaar met knoppjes
-int Sleeptimer  = 1 ; //teller in minuten waneer de verwarming moet opstarten
+byte pwm_procent   ; //hoeveel dutycyle moet de pomp draaien , instelbaar met knoppjes
+int Sleeptimer = 1 ; //teller in minuten waneer de verwarming moet opstarten
 
-String knopfunctie1 = "pwm" ;//lcd menu toetsfuncties
-String knopfunctie2 = "temp" ;
-String knopfunctie3 = "alarm" ;
-String knopfunctie4 = "timer" ;
+String knopfunctie1 = "*" ;//lcd menu toetsfuncties
+String knopfunctie2 = "*" ;
+String knopfunctie3 = "*" ;
+String knopfunctie4 = "*" ;
 
+//menustructuur zie https://docs.google.com/spreadsheets/d/1Ux7BjQliBvcJo_uFXEetqfq39N1StjSkJp7nEkzE3UM/edit#gid=0
 byte menustructuur = 0 ;//menustructuur lcd en rs232 die de parameters instelt 0=hoofdmenu 1=pwmmenu 2=gewenstetempmenu ...
 
 bool  pompvrijgave = 0 ; //0=niet starten 1=mag wel starten
 bool timervrijgave = 0 ; //is de sleeptimer afgelopen en mogen we de webasta opstarten met vertraging 0=nee 1=ja
 bool startvrijgave = 0 ; // 0=mag niet opstarten 1=start webasto
 bool stookvrijgave = 0 ; // 0=we hebben voldoende warm gestookt ,  1=we moeten bijstoken
+bool alarmbit = 1 ; //als we niet gemeten hebben gaan we niet vrijgeven
+//4standenschakelaar programma (vgl. wasmachine programma) zie https://docs.google.com/spreadsheets/d/1Ux7BjQliBvcJo_uFXEetqfq39N1StjSkJp7nEkzE3UM/edit#gid=0
+byte meerstandenschakelaar[] = {B000, B001, B011, B0111 }; //bit-wise toestanden
+byte vertragingen[] =          {  2 ,  2  , 2   ,  1    };   //hoelang is het eer je naar volgende stand mag gaan
+byte stand = 0 ; //de stand van de meerstandenschakelaar
+byte draairichtingMeerstandenschak = 2 ; // 0=zak  1=up 2=hold
 
-unsigned int klok = 65534 ; //optelklok in seconden
-unsigned int startmoment = 65534 ; //moment waarop we de webasto starten
+
+//unsigned int klok = 65534 ; //optelklok in seconden
+//unsigned int startmoment = 65534 ; //moment waarop we de webasto starten
 //limieten
 #define procent_lower_limit 0 // 0 tot 100 procent
 #define procent_upper_limit 100
@@ -109,7 +117,7 @@ const long interval = 1000;           // interval at which to check things (mill
 #define J4_temp   34  //34op de mega oververhitting veiligheid
 
 
-byte pompvertragingteller  ;// = 3 ; //3seconden later mag de pwm pomp beginnen
+byte vertragingteller  ;// = 3 ; //3seconden later mag de pwm pomp beginnen
 
 
 // instantiate the library, representing the tempsensor
@@ -241,6 +249,7 @@ void setup() {
 
 
 
+  vertragingteller =  vertragingen[stand] ; // initieel stand 0 en zijn overeenkomstige vertraging
 
 
 
@@ -264,11 +273,15 @@ Button button4(SW4_knop); //49
 
 void loop() {
 
-  //  controleerInputs();
+
+  timervrijgave = 1 ; //debug
+  // controleerInputs();
   flowshartmenustructuurLCD ();
-  timer_elke_seconde();
+  timer_elke_seconde(); //outut variabelen via rs232
 
-
+  //4standenschakelaar programma (vgl. wasmachine programma)
+  //byte meerstandenschakelaar[stand] = {B000,B001,B011,B0111,0,0,0,0,0,0};
+  //byte stand = 0 ; //de stand van de meerstandenschakelaar
 
 
 
@@ -289,13 +302,13 @@ void controleerInputs()
   if ( button1.IsErFlank())
   {
     Serial.println("but1 flank+1");
-    delay(500);
+    stand = stand + 1 ;
 
   }
   if ( button2.IsErFlank())
   {
     Serial.println("but2 flank+1");
-    delay(500);
+    stand = stand - 1;
   }
   if ( button3.IsErFlank())
   {
@@ -322,53 +335,63 @@ void timer_elke_seconde() {
     // hier staan we elke seconde vrijmaken rs232 scherm
     Serial.print("\n\n \n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n");
 
-    if (Sensor2.getTemperature(&temperature2)) {
-      //  Serial.print("uint_16: ");     Serial.println(temperature2);
-      Temperatur_C2 = Sensor2.calc_Celsius(&temperature2);
-      //    Serial.print("Temp2: ");     Serial.print(Temperatur_C2);    Serial.println(" °C");
-    }
+    //  klok = klok + 1 ;
+
+    //checkPompvertraging() ;//eerst ventilator , dan pwm pomp
+    //  checkInschakelvertraging() ; //als de sleeptimer op is , opstarten ( vb na 180minuten )
+
+    check_stookvrijgave();//stoken we niet te veel of te weinig ?
+    check_alarmbit();//tjernobyl of veilig?
 
 
-    klok = klok + 1 ;
+    //    #define K1_ventilator   23  // relais ventilator
+    //#define K2_gloeikaars   25  // relais gloeikaars
+    //#define Q3_mosfet   45  //pomp pwm sproeier
+    bitRead(meerstandenschakelaar[stand] , 0) ; //venti
+    bitRead(meerstandenschakelaar[stand] , 1) ; //gloeikaars
+    bitRead(meerstandenschakelaar[stand] , 2) ; //pompvrijgave
 
-    checkPompvertraging() ;//eerst ventilator , dan pwm pomp
-    checkInschakelvertraging() ; //als de sleeptimer op is , opstarten ( vb na 180minuten )
-    checkTemperatuur();//stoken we niet te veel of te weinig ?
-
+    //byte wachttijd_next_stand = vertragingen [stand] ; //vertragingen , tijd tot volgende stap
+    digitalWrite (K1_ventilator , bitRead(meerstandenschakelaar[stand] , 0)) ;
+    digitalWrite (K2_gloeikaars , bitRead(meerstandenschakelaar[stand] , 1)) ;
+    digitalWrite (Q3_mosfet , bitRead(meerstandenschakelaar[stand] , 2)) ;
 
     // en dan opt gemak printen
-    Serial.print("\n\ngewensteTemp \t\t"); Serial.print(gewensteTemp); Serial.println(" °C");
-    Serial.print("pwm_procent \t\t"); Serial.print(pwm_procent); Serial.println(" procent");
-    Serial.print("alarmTemp \t\t"); Serial.print(alarmTemp); Serial.println(" °C");
-    Serial.print("Sleeptimer: \t\t"); Serial.print(Sleeptimer); Serial.println(" minuten");
+    // Serial.print("\n\ngewensteTemp \t\t"); Serial.print(gewensteTemp); Serial.println(" °C");
+    Serial.print("pwm_procent  \t"); Serial.print(pwm_procent); Serial.println(" procent");
+    // Serial.print("alarmTemp:\t"); Serial.print(alarmTemp); Serial.println(" °C");
+    Serial.print("Sleeptimer:\t"); Serial.print(Sleeptimer); Serial.println(" minuten");
 
-    Serial.print("\nTemp1: \t\t\t"); Serial.print(Temperatur_C); Serial.println(" °C");
-    Serial.print("Temp2: \t\t\t"); Serial.print(Temperatur_C2); Serial.println(" °C");
+    Serial.print("\nhuidigetemp:\t"); Serial.print(Temperatur_C); Serial.print(" °C -gewenstetemp\t"); Serial.print(gewensteTemp); Serial.println("°C");
+    Serial.print("veiligheid:\t"); Serial.print(Temperatur_C2); Serial.print(" °C -alarmTemp\t"); Serial.print(alarmTemp); Serial.println("°C");
 
-    Serial.print("startvrijgave: \t\t"); Serial.print(startvrijgave); Serial.println(" on/off");
-    Serial.print("timervrijgave: \t\t"); Serial.print(timervrijgave); Serial.println(" inschak vertr");
-  Serial.print("stookvrijgave: \t\t"); Serial.print(stookvrijgave); Serial.println(" 0=tewarm  1=bijstoken");
-    Serial.print("pompvrijgave: \t\t"); Serial.print(pompvrijgave); Serial.println(" on/off");
+    Serial.print("startvrijgave:\t"); Serial.print(startvrijgave); Serial.println(" // on/off");
+    Serial.print("timervrijgave:\t"); Serial.print(timervrijgave); Serial.println(" // inschak vertr");
+    Serial.print("stookvrijgave:\t"); Serial.print(stookvrijgave); Serial.println(" // 0=tewarm  1=bijstoken");
+    Serial.print("alarmbit:\t"); Serial.print(alarmbit); Serial.println(" // 0=veilig  1=tjernobyl");
 
-    Serial.print("\nventilator: \t\t"); Serial.print(digitalRead(K1_ventilator)); Serial.println(" venti");
-    Serial.print("gloeikaars: \t\t"); Serial.print(digitalRead(K2_gloeikaars)); Serial.println(" gloeikaars");
+    //draairichtingMeerstandenschak = 1 ; // 0=terugkeren in stand 1=omhooggaan in stand
+    Serial.print("\nstand:"); Serial.print (stand); Serial.print(" vertraging: "); Serial.print(vertragingen [stand]);  Serial.print(" richtng: "); Serial.print (draairichtingMeerstandenschak);  Serial.println(" // 0=zak  1=up 2=hold");
+    Serial.print("\nventilator:\t"); Serial.print(bitRead(meerstandenschakelaar[stand] , 0) ); Serial.println(" ");
+    Serial.print("gloeikaars:\t"); Serial.print(bitRead(meerstandenschakelaar[stand] , 1)); Serial.println("  ");
+    Serial.print("pompvrijgave:\t"); Serial.print(bitRead(meerstandenschakelaar[stand] , 2)); Serial.println(" ");
 
-    Serial.print("interne klok: \t\t"); Serial.print(klok); Serial.println(" seconden");
-    Serial.print("pompvertragingteller: \t"); Serial.print(pompvertragingteller); Serial.println(" delay");
+    // Serial.print("\ninterne klok: \t\t"); Serial.print(klok); Serial.println(" seconden");
+    Serial.print("vertragingtlr:\t"); Serial.print(vertragingteller); Serial.println(" delay");
 
 
-    Serial.print("\nmenu: \t\t\t"); Serial.println(menustructuur);
-    Serial.print("knop1: \t\t\t"); Serial.println(knopfunctie1);
-    Serial.print("knop2: \t\t\t"); Serial.println(knopfunctie2);
-    Serial.print("knop3: \t\t\t"); Serial.println(knopfunctie3);
-    Serial.print("knop4: \t\t\t"); Serial.println(knopfunctie4);
+    Serial.print("\nmenu:\t"); Serial.println(menustructuur);
+    Serial.print("knop1:\t"); Serial.println(knopfunctie1);
+    Serial.print("knop2:\t"); Serial.println(knopfunctie2);
+    Serial.print("knop3:\t"); Serial.println(knopfunctie3);
+    Serial.print("knop4:\t"); Serial.println(knopfunctie4);
 
+
+    checkvertraging() ; //we kunnen na de delay vertraging een stand verhogen
 
 
   }
 }
-
-
 
 // menustructuur die 4parameters kan aanpassen binnen bepaalde limieten
 void flowshartmenustructuurLCD() {
@@ -400,7 +423,6 @@ void flowshartmenustructuurLCD() {
       }
       break;
 
-
     case 1:    // startpositie
       knopfunctie1 = "on";
       knopfunctie2 = "off";
@@ -427,8 +449,6 @@ void flowshartmenustructuurLCD() {
         menustructuur = 0 ;
       }
       break;
-
-
 
     case 2:    // off positie
       knopfunctie1 = "on";
@@ -457,8 +477,6 @@ void flowshartmenustructuurLCD() {
       }
       break;
 
-
-
     case 3:    // setting positie
       knopfunctie1 = "timer";
       knopfunctie2 = "gewenstetemp";
@@ -486,11 +504,6 @@ void flowshartmenustructuurLCD() {
       }
       break;
 
-
-
-
-
-
     case 4:    // vertraagt starten
       knopfunctie1 = "on vertraagd";
       knopfunctie2 = "off";
@@ -500,7 +513,7 @@ void flowshartmenustructuurLCD() {
       {
         Serial.println(knopfunctie1 + selected);
         startvrijgave = true ; //nu zijn we afhankelijk van de inschakelvertraging
-        klok = 0 ; //we maken het ons gemakkelijk
+        //  klok = 0 ; //we maken het ons gemakkelijk
       }
       if ( button2.IsErFlank())
       {
@@ -518,8 +531,6 @@ void flowshartmenustructuurLCD() {
         menustructuur = 0 ;
       }
       break;
-
-
 
     case 5:    // sleeptimer edit
       knopfunctie1 = "+ " + String(stap);
@@ -560,10 +571,6 @@ void flowshartmenustructuurLCD() {
       }
       break;
 
-
-
-
-
     case 6:    // gewenste temp edit
       knopfunctie1 = "+ " + String(stap);
       knopfunctie2 = "- " +  String(stap);
@@ -602,10 +609,6 @@ void flowshartmenustructuurLCD() {
         }
       }
       break;
-
-
-
-
 
     case 7:    // alarm max
       knopfunctie1 = "+ " + String(stap);
@@ -646,17 +649,6 @@ void flowshartmenustructuurLCD() {
       }
       break;
 
-
-
-
-
-
-
-
-
-
-
-
     case 8:    // pwm edit
       knopfunctie1 = "+ " + String(stap);
       knopfunctie2 = "- " +  String(stap);
@@ -695,13 +687,8 @@ void flowshartmenustructuurLCD() {
         }
       }
       break;
-
-
-
   }
 }
-
-
 
 //controleer of de gebruiker parameters ingeeft die binnen de limiet zijn
 bool userinput_check (byte waarde , byte onderlimiet , byte bovenlimiet)
@@ -725,9 +712,10 @@ void startWebasto ()
   //bool startvrijgave = 0 ; // 0=mag niet opstarten 1=start webasto
   startvrijgave = true ;
   timervrijgave = true ; //forceer de timervrijgave want we willen nu direct opstarten
-  //Serial.println("\n\n\nstart Webasto op " + String(klok));
-  //delay(1500);// debug
-  digitalWrite (K1_ventilator , HIGH) ;
+  stand = 1;
+  draairichtingMeerstandenschak = 1 ; // 0=zak  1=up 2=hold
+
+  // digitalWrite (K1_ventilator , HIGH) ;
 }
 
 
@@ -738,37 +726,57 @@ void stopWebasto ()
   startvrijgave = false ;
   timervrijgave = false ;
   pompvrijgave = false ;
+  stand = 3;
+  draairichtingMeerstandenschak = 0 ; // 0=zak  1=up 2=hold
   Serial.println("\n\n\nwe de koeling moet nog 10sec blijven");
-  digitalWrite (K1_ventilator , LOW) ;
+
   //set_pwm_pomp ( 0) ; //set_pwm_pomp (byte pwm) 0-100% als parameter meegeven , de pompvrijgave moet ook geset zijn
 }
 
 
-//6sec nadat we op start drukten of als de timer afgelopenis ,  zal de pomp vrijgave krijgen
-void checkPompvertraging()
+
+//controleer of we mogen aftellen ( mogen we de aftelklok doen lopen?)
+void checkvertraging()
 {
-  if (timervrijgave == true &&  pompvrijgave == false ) {
-    pompvertragingteller = pompvertragingteller - 1 ;
+    if (vertragingteller > 0 ) {
+    //vrijgaves checken
+    if ( alarmbit  ==  0 && timervrijgave  ==  1  && stand < sizeof(vertragingen) - 1) {
+       Serial.println("rrrrr");
+      //////als we niet op 2=hold staan mag je aftellen naar de volgende stand
+      if (draairichtingMeerstandenschak !=2   ) {
+         Serial.println("richting is");
+        vertragingteller = vertragingteller - 1 ;
+      }
+      /////////////
+    }
   }
   else
-  { pompvertragingteller = vertragingPWMpomp;//we steken ons define getal in de teller
+  {
+    //nieuwe waarde klaarzetten
+    vertragingteller = vertragingen [stand];//we steken ons define getal in de teller
   }
+  Serial.println("size");
+  Serial.println(sizeof(vertragingen)-1);
+    Serial.println("stand");
+  Serial.println(stand);
 
-  if (  pompvertragingteller ==  0 ) {
-    pompvrijgave = true ;//als de 6sec zijn afgeteld , dan vrijgave
-  }
-  if (  pompvrijgave && stookvrijgave ) {
-    set_pwm_pomp ( pwm_procent) ; //set_pwm_pomp (byte pwm) 0-100% als parameter meegeven
-  }
-  else {
-    set_pwm_pomp ( 0) ; //set_pwm_pomp (byte pwm) 0-100% als parameter meegeven
-  }
+  //hier gaan we de nieuwe stand gaan bepalen
+  if (  vertragingteller ==  0  ) {
+    //check veiligheden en vrijgaves
+    if (  alarmbit  ==  0 && timervrijgave  ==  1   ) {
+Serial.println("aa");
+      ///////////////1=up 0=down of 2=hold ? draairichtingMeerstandenschak
+  
 
-
+  stand = stand + 1   ; //vorige stand mag komen ,we mogen niet in stand -1   he
+          vertragingteller = vertragingen [stand] ; //volgende stand met de respectievelijke vertraging
+       
+    }
+  }
 }
 
 
-//we kunnen de timer op 180minuten zetten , en dan start de webasto autonoom op
+//Sleeptimer we kunnen de timer op 180minuten zetten , en dan start de webasto autonoom op
 void checkInschakelvertraging()
 {
   //  bool  pompvrijgave = 0 ; //0=niet starten 1=mag wel starten
@@ -778,7 +786,7 @@ void checkInschakelvertraging()
 
   sleeptimer_in_seconden = 16 ; //debug
 
-  if (startvrijgave == true && klok >=  sleeptimer_in_seconden )
+  if (startvrijgave == true   )
   {
     timervrijgave = true ;
   }
@@ -789,26 +797,48 @@ void checkInschakelvertraging()
 }
 
 
-void checkTemperatuur()//stoken we niet te veel of te weinig ?
+void check_stookvrijgave()//stoken we niet te veel of te weinig ?
 {
-
   //we checken even de tempsensors ( we doen dat elke seconde)
   if (Sensor1.getTemperature(&temperature)) {
     //  Serial.print("uint_16: ");     Serial.println(temperature);
     Temperatur_C = Sensor1.calc_Celsius(&temperature);
     //    Serial.print("Temp: ");     Serial.print(Temperatur_C);    Serial.println(" °C");
   }
-
-
   if (gewensteTemp > Temperatur_C)
   {
-    Serial.println("we mogen blijven stoken");
+    // Serial.println("we mogen blijven stoken");
     stookvrijgave = true;
   }
   else
   {
-    Serial.println("we moeten ff de brander afleggen");
+    //  Serial.println("we moeten ff de brander afleggen");
     stookvrijgave = false;
   }
+}
 
+
+
+
+
+
+void check_alarmbit()//Smelt de webasto niet en gaat dit niet ontploffen zoals in beirut ?
+{
+  //we checken even de tempsensors ( we doen dat elke seconde)
+  if (Sensor2.getTemperature(&temperature2)) {
+    //  Serial.print("uint_16: ");     Serial.println(temperature2);
+    Temperatur_C2 = Sensor2.calc_Celsius(&temperature2);
+    //    Serial.print("Temp2: ");     Serial.print(Temperatur_C2);    Serial.println(" °C");
+  }
+
+  if (alarmTemp >= Temperatur_C2)
+  {
+    // Serial.println("Geen tjernobyl");
+    alarmbit = false;
+  }
+  else
+  {
+    // Serial.println("ALARM , tjernobyl is comming");
+    alarmbit = true;
+  }
 }
