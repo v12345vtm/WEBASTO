@@ -1,55 +1,10 @@
-
-/*
-  geert eindwerk : deze sketch : https://github.com/v12345vtm/WEBASTO/tree/master/programma
-
-
-  menustructuur http://avtanski.net/projects/lcd/
-
-
-
-
-  info :
-  Mega, Mega2560, MegaADK pinnen met interupt 2, 3, 18, 19, 20, 21
-
-
-  //ingangen schakelaars  ,alles met pulldownweerstand
-  //sw1_knop pin33
-  //sw2_knop pin39
-  //sw3_knop pin47
-  //sw4_knop pin49
-
-  //ingangen sensors : datasheet : https://github.com/v12345vtm/WEBASTO/blob/master/tsic%20206.pdf
-  //J3_temp pin36
-  //J4_temp pin34
-
-  //uitgangen
-  //Q3 mosfet  pin 45 signaal : https://github.com/v12345vtm/WEBASTO/blob/master/pomp1.bmp  datasheet : https://github.com/v12345vtm/WEBASTO/blob/master/mosfet.pdf
-  //K1 relais pin23
-  //K2 relais pin25
-
-  //LCD datasheet : https://github.com/v12345vtm/WEBASTO/blob/master/ATM1602A.pdf
-   LCD RS pin to digital pin 32
-   LCD Enable pin to digital pin20
-   LCD D4 pin to digital pin 22
-   LCD D5 pin to digital pin 24
-   LCD D6 pin to digital pin 26
-   LCD D7 pin to digital pin  28
-   LCD R/W pin to ground
-   LCD VSS pin to ground
-   LCD VCC pin to 5V
-   10K resistor:
-   ends to +5V and ground
-   wiper to LCD VO pin (pin 3)
-
-*/
-
 // include the library code:
 #include <LiquidCrystal.h> // LCD 4bit mode
 #include "TSIC.h"       // include the library tsic voor de tempsensors uit te lezen
 #include <EEPROM.h> //opslaan user settings
 //variabelen :
 
-String versie = "DEG V0.3 clasbuttonLCD-TEMP_onoff-MEGA-standenschak 3" ; //sketch versie
+String versie = "DEG V0.3 clasbuttonLCD-TEMP_onoff-MEGA-standenschak check_positie_draaiknop" ; //sketch versie
 
 byte gewensteTemp  ; //hoe warm wil je het in de auto hebben?
 byte alarmTemp   ; // als de webasto 60gr is , stop het geheel
@@ -70,14 +25,11 @@ bool startvrijgave = 0 ; // 0=mag niet opstarten 1=start webasto
 bool stookvrijgave = 0 ; // 0=we hebben voldoende warm gestookt ,  1=we moeten bijstoken
 bool alarmbit = 1 ; //als we niet gemeten hebben gaan we niet vrijgeven
 //4standenschakelaar programma (vgl. wasmachine programma) zie https://docs.google.com/spreadsheets/d/1Ux7BjQliBvcJo_uFXEetqfq39N1StjSkJp7nEkzE3UM/edit#gid=0
-byte meerstandenschakelaar[] = {B000, B001, B011, B0111 }; //bit-wise toestanden
-byte vertragingen[] =          {  6 ,  5  ,4   ,  6    };   //hoelang is het eer je naar volgende stand mag gaan
+byte meerstandenschakelaar[] = {B000,  B001, B001, B001 , B001, B001 , B011, B011, B011, B011 , B111 }; //bit-wise toestanden
+
 byte stand = 0 ; //de stand van de meerstandenschakelaar
 byte draairichtingMeerstandenschak = 2 ; // 0=zak  1=up 2=hold
 
-
-//unsigned int klok = 65534 ; //optelklok in seconden
-//unsigned int startmoment = 65534 ; //moment waarop we de webasto starten
 //limieten
 #define procent_lower_limit 0 // 0 tot 100 procent
 #define procent_upper_limit 100
@@ -117,8 +69,7 @@ const long interval = 1000;           // interval at which to check things (mill
 #define J4_temp   34  //34op de mega oververhitting veiligheid
 
 
-byte vertragingteller  ;// = 3 ; //3seconden later mag de pwm pomp beginnen
-
+byte aftelklok  ;
 
 // instantiate the library, representing the tempsensor
 TSIC Sensor1(J3_temp);    // only Signalpin, VCCpin unused by default
@@ -249,7 +200,7 @@ void setup() {
 
 
 
-  vertragingteller =  vertragingen[stand] ; // initieel stand 0 en zijn overeenkomstige vertraging
+  // meerstandenschakelaar =  vertragingen[stand] ; // initieel stand 0 en zijn overeenkomstige vertraging
 
 
 
@@ -273,13 +224,13 @@ Button button4(SW4_knop); //49
 
 void loop() {
 
-grafiek();//toon stand programmakknop visueel
-//  timervrijgave = 1 ; //debug
- //controleerInputs();debug
- // flowshartmenustructuurLCD ();
- // timer_elke_seconde(); //output variabelen via rs232
 
- 
+  //  timervrijgave = 1 ; //debug
+  // controleerInputs();//debug
+  flowshartmenustructuurLCD ();
+  timer_elke_seconde(); //output variabelen via rs232
+
+
 
 
 }
@@ -298,18 +249,18 @@ void controleerInputs()
   if ( button1.IsErFlank())
   {
     Serial.println("but1 flank+1");
-    stand  = stand + 1 ;
+    draairichtingMeerstandenschak = 1;//         0=zak  1=up 2=hold");
 
   }
   if ( button2.IsErFlank())
   {
     Serial.println("but2 flank+1");
-      stand  = stand - 1 ;
+    draairichtingMeerstandenschak = 0;//         0=zak  1=up 2=hold");
   }
   if ( button3.IsErFlank())
   {
     Serial.println("but3 flank+1");
-    delay(500);
+    draairichtingMeerstandenschak = 2;//         0=zak  1=up 2=hold");;
   }
   if ( button4.IsErFlank())
   {
@@ -329,15 +280,19 @@ void timer_elke_seconde() {
     previousMillis = currentMillis;
 
     // hier staan we elke seconde vrijmaken rs232 scherm
-    Serial.print("\n\n \n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n");
+    Serial.print("\n\n \n\n\n\n");
 
     //  klok = klok + 1 ;
 
     //checkPompvertraging() ;//eerst ventilator , dan pwm pomp
     //  checkInschakelvertraging() ; //als de sleeptimer op is , opstarten ( vb na 180minuten )
 
+
+
     check_stookvrijgave();//stoken we niet te veel of te weinig ?
     check_alarmbit();//tjernobyl of veilig?
+    check_positie_draaiknop();//toon stand programmakknop visueel
+    check_uitbollen_dan_shutdown() ; //we kunnen na de delay vertraging een stand verhogen
 
 
     //    #define K1_ventilator   23  // relais ventilator
@@ -366,14 +321,14 @@ void timer_elke_seconde() {
     Serial.print("stookvrijgave:\t"); Serial.print(stookvrijgave); Serial.println(" // 0=tewarm  1=bijstoken");
     Serial.print("alarmbit:\t"); Serial.print(alarmbit); Serial.println(" // 0=veilig  1=tjernobyl");
 
-    //draairichtingMeerstandenschak = 1 ; // 0=terugkeren in stand 1=omhooggaan in stand
-    Serial.print("\nstand:"); Serial.print (stand); Serial.print(" vertraging: "); Serial.print(vertragingen [stand]);  Serial.print(" richtng: _"); Serial.print (draairichtingMeerstandenschak);  Serial.println("_        0=zak  1=up 2=hold");
+
+    //  Serial.print("\nstand:"); Serial.print (stand);// Serial.print(" vertraging: "); Serial.print(vertragingen [stand]);  Serial.print(" richtng: _"); Serial.print (draairichtingMeerstandenschak);  Serial.println("_        0=zak  1=up 2=hold");
     Serial.print("\nventilator:\t"); Serial.print(bitRead(meerstandenschakelaar[stand] , 0) ); Serial.println(" ");
     Serial.print("gloeikaars:\t"); Serial.print(bitRead(meerstandenschakelaar[stand] , 1)); Serial.println("  ");
     Serial.print("pompvrijgave:\t"); Serial.print(bitRead(meerstandenschakelaar[stand] , 2)); Serial.println(" ");
 
     // Serial.print("\ninterne klok: \t\t"); Serial.print(klok); Serial.println(" seconden");
-    Serial.print("vertragingtlr:\t"); Serial.print(vertragingteller); Serial.println(" delay");
+    Serial.print("aftelklok:\t"); Serial.print(aftelklok); Serial.println(" uitbollen venti");
 
 
     Serial.print("\nmenu:\t"); Serial.println(menustructuur);
@@ -383,7 +338,8 @@ void timer_elke_seconde() {
     Serial.print("knop4:\t"); Serial.println(knopfunctie4);
 
 
-    checkvertraging() ; //we kunnen na de delay vertraging een stand verhogen
+
+
 
 
   }
@@ -708,7 +664,7 @@ void startWebasto ()
   //bool startvrijgave = 0 ; // 0=mag niet opstarten 1=start webasto
   startvrijgave = true ;
   timervrijgave = true ; //forceer de timervrijgave want we willen nu direct opstarten
-  
+
   draairichtingMeerstandenschak = 1 ; // 0=zak  1=up 2=hold
 
   // digitalWrite (K1_ventilator , HIGH) ;
@@ -719,86 +675,59 @@ void startWebasto ()
 //stoproutine en gecontroleerd afkoelen veiligheden
 void stopWebasto ()
 {
-  startvrijgave = false ;
-  timervrijgave = false ;
-  pompvrijgave = false ;
-  //stand = 2;
-  draairichtingMeerstandenschak = 0 ; // 0=zak  1=up 2=hold
-  Serial.println("\n\n\nwe de koeling moet nog 10sec blijven");
-  //set_pwm_pomp ( 0) ; //set_pwm_pomp (byte pwm) 0-100% als parameter meegeven , de pompvrijgave moet ook geset zijn
-}
+  //startvrijgave = false ;
+  //timervrijgave = false ;
 
-//controleer of we mogen aftellen ( mogen we de aftelklok doen lopen?)
-void checkvertraging()
-{
-  if (vertragingteller > 0 ) {
-    //vrijgaves checken
-    if ( alarmbit  ==  0 && timervrijgave  ==  1  && stand < sizeof(vertragingen) - 1   &&  draairichtingMeerstandenschak < 2  || draairichtingMeerstandenschak ==0 )
-    {
-      //////de vertragingteller telt af en doet een stand zakken of stijgen , maar als we zakken mogen we niet onder 0
-      if (stand >= 0 )
-      {
-         Serial.println("*******grafiek*****");
-         grafiek();
-        vertragingteller = vertragingteller - 1 ;
-      }
-    }
+  if (!startvrijgave)
+  {
+    //als je niet op start ooit gedrukt hebt , moet je niet geforceert koelen
+    Serial.println("\n\n\nwe drukten nooit op start");
   }
   else
   {
-    //nieuwe waarde klaarzetten
-
- 
-   // vertragingteller = vertragingen [stand];//we steken ons define getal in de teller
-  
-  
-  
-  
+    stand = 1; //stand 1 is de altijd de ventilator  die aan is
+    draairichtingMeerstandenschak = 2 ; // 0=zak  1=up 2=hold
+    Serial.println("zet op HOLD we de koeling moet nog 10sec blijven");
+    aftelklok = 10 ;
   }
-
-
-   ///////////
-  if (stand == 0  && draairichtingMeerstandenschak ==0 )
-      {
-//we moeten niet verder blijven puchen om te zakken , want we staan op 0
-draairichtingMeerstandenschak = 2 ; 
- vertragingteller = vertragingen [stand-1];//we steken ons define getal in de teller
-  
-        
-      }
-
-
-
-    ///
-
-
-  
-
-  //hier gaan we de nieuwe stand gaan bepalen van onze wasmachine programmaknop
-  if (  vertragingteller ==  0    ) {
-    //check veiligheden en vrijgaves
-    if (  alarmbit  ==  0 && timervrijgave  ==  1   )
-    {
-      /////////////// draairichtingMeerstandenschak : 1=up 0=down of 2=hold
-      if (draairichtingMeerstandenschak == 1  ) {
-        //  Serial.println("gggggggggggggggg***********");
-        stand = stand + 1   ; //volgende stand mag komen ,we mogen niet in stand -1   he
-        vertragingteller = vertragingen [stand] ; //volgende stand met de respectievelijke vertraging
-      }
-
-      if (draairichtingMeerstandenschak == 0 && stand > 0 ) {
-        stand = stand - 1   ; //vorige stand mag komen ,we mogen niet in stand -1   he
-        vertragingteller = vertragingen [stand ] ; //volgende stand met de respectievelijke vertraging
-      }
-
-      if (draairichtingMeerstandenschak == 2  ) {
-        //2=hold betekend niks doen
-        // vertragingteller = vertragingen [stand] ; //volgende stand met de respectievelijke vertraging
-      }
-    }
-  }
+  //set_pwm_pomp ( 0) ; //set_pwm_pomp (byte pwm) 0-100% als parameter meegeven , de pompvrijgave moet ook geset zijn
 }
 
+
+
+
+
+//controleer of we mogen aftellen ( mogen we de aftelklok doen lopen?)
+void check_uitbollen_dan_shutdown()
+{
+
+  ////
+  // stand = 1; //stand 1 is de altijd de ventilator  die aan is
+  // draairichtingMeerstandenschak = 2 ; // 0=zak  1=up 2=hold
+  if (stand ==  1  && draairichtingMeerstandenschak == 2 )
+  {
+    aftelklok = aftelklok - 1 ;
+
+
+    if (aftelklok == 0) {
+      startvrijgave = 0;
+      timervrijgave = 0; //we mogen niet elke 8uur opstarten
+      stand = 0 ;
+
+    }
+
+  }
+
+
+  ////
+
+
+
+
+
+
+
+}
 
 //Sleeptimer we kunnen de timer op 180minuten zetten , en dan start de webasto autonoom op
 void checkInschakelvertraging()
@@ -827,6 +756,12 @@ void check_stookvrijgave()
     Temperatur_C = Sensor1.calc_Celsius(&temperature);
     //    Serial.print("Temp: ");     Serial.print(Temperatur_C);    Serial.println(" °C");
   }
+
+
+//debug 
+
+Temperatur_C = 9;
+  
   if (gewensteTemp > Temperatur_C)
   {
     // Serial.println("we mogen blijven stoken");
@@ -866,48 +801,34 @@ void check_alarmbit()
 }
 
 
-void grafiek()
+void check_positie_draaiknop()
 {
-   Serial.println("\ngggggggggggggggg***********");
-
-//4standenschakelaar programma (vgl. wasmachine programma) zie https://docs.google.com/spreadsheets/d/1Ux7BjQliBvcJo_uFXEetqfq39N1StjSkJp7nEkzE3UM/edit#gid=0
-//byte meerstandenschakelaar[] = {B000, B001, B011, B0111 }; //bit-wise toestanden
-//byte vertragingen[] =          {  6 ,  5  ,4   ,  6    };   //hoelang is het eer je naar volgende stand mag gaan
-//byte stand = 0 ; //de stand van de meerstandenschakelaar
-//byte draairichtingMeerstandenschak = 2 ; // 0=zak  1=up 2=hold
-//stand < sizeof(meerstandenschakelaar) - 1 
-
-byte pointer = 0 ;
-
-  for (int i = 0; i <= sizeof(meerstandenschakelaar)-2  ; i = i + 1) {
-    
- // Serial.println("gggggggggggggggg***********");
-   Serial.print(i);//mogelijke standen  0 1 2 3 4 ...
-   
- for (int j = 0; j < vertragingen[i] +1 ; j = j + 1) {
-   Serial.print("-");
-   pointer = pointer +1 ; 
- }
-
-
+  Serial.println("");
+  if (draairichtingMeerstandenschak == 0)
+  {
+    Serial.print ("down  - ");
+    if (stand >= 1  ) {
+      stand = stand - 1 ;
+    }
   }
-
- Serial.print(sizeof(meerstandenschakelaar)-1) ;//laatste stand 
- 
-  ////////////////pointer maken
-  Serial.println(" ");
- for (int k = 1; k < pointer ; k = k + 1) {
-   Serial.print("*");
-
-   
-  // pointer = pointer +1 ; 
- }
-
-
-   
- ///////////// 
-
-Serial.println(" ");
-delay(1500);
-   
+  if (draairichtingMeerstandenschak == 1   )
+  {
+    Serial.print ("up  - ");
+    if (stand < sizeof(meerstandenschakelaar) - 1  ) {
+    /////
+if (stookvrijgave ) {   
+    stand = stand + 1 ;
+}
+else {
+   Serial.print ("geen stookvrijgave!! mmar we starten de ventilator wel zodat je hoort dat er iets aanligt");
+   stand = 1 ; 
   }
+    }
+  }
+  if (draairichtingMeerstandenschak == 2)
+  {
+    Serial.print ("hold  - ");
+  }
+  Serial.print("stand:"); Serial.print (stand); Serial.print("/"); Serial.println (sizeof(meerstandenschakelaar) - 1);
+
+}
